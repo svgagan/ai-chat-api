@@ -28,6 +28,7 @@ uvicorn app.main:app --reload
 
 ## API
 POST /api/v1/chat
+POST /api/v1/explain
 
 ## Design Decisions
 - Service Layer pattern isolates AI logic from HTTP layer
