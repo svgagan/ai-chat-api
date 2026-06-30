@@ -1,5 +1,6 @@
 # app/services/ai_service.py
 import litellm
+import instructor
 from app.config import ai_config
 
 # Tell LiteLLM which API key to use
@@ -16,6 +17,9 @@ class AIService:
         self.model = ai_config.MODEL
         self.default_temperature = ai_config.DEFAULT_TEMPERATURE
         self.default_max_tokens = ai_config.DEFAULT_MAX_TOKENS
+
+        # instructor wraps litellm and adds schema enforcement + auto-retry
+        self.structured_client = instructor.from_litellm(litellm.completion)
 
     def chat(
         self,
@@ -55,6 +59,26 @@ class AIService:
         # Extract the text from the response object
         return response.choices[0].message.content
 
+
+    def extract_structured(self, user_message: str, response_model, system_prompt: str = None):
+        """
+        Extract structured data from unstructured text.
+        response_model: the Pydantic schema we want the AI to fill in.
+        instructor handles: schema enforcement, validation, and automatic
+        retry-with-feedback if the AI's first response fails validation.
+        """
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": user_message})
+
+        result = self.structured_client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            response_model=response_model,   # <-- this is the key difference
+            max_retries=2                    # <-- self-healing retry, capped
+        )
+        return result
 
 # Single instance — same singleton pattern as config
 ai_service = AIService()
