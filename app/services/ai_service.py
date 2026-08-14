@@ -2,6 +2,7 @@
 import litellm
 import instructor
 from app.config import ai_config
+from typing import Generator
 
 # Tell LiteLLM which API key to use
 # LiteLLM reads this before every call
@@ -59,7 +60,6 @@ class AIService:
         # Extract the text from the response object
         return response.choices[0].message.content
 
-
     def extract_structured(self, user_message: str, response_model, system_prompt: str = None):
         """
         Extract structured data from unstructured text.
@@ -79,6 +79,50 @@ class AIService:
             max_retries=2                    # <-- self-healing retry, capped
         )
         return result
+
+    def stream_chat(self, user_message: str,
+                    system_prompt: str = "You are a helpful assistant.") -> Generator:
+        """
+        Stream AI response token by token.
+        Returns a generator — caller gets one token at a time
+        instead of waiting for the complete response.
+        """
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": user_message}
+        ]
+
+        # stream=True tells LiteLLM to return tokens as they are generated
+        # instead of waiting for the complete response
+        response = litellm.completion(
+            model=self.model,
+            messages=messages,
+            temperature=self.default_temperature,
+            max_tokens=self.default_max_tokens,
+            stream=True         # ← this is the only difference from chat()
+        )
+
+        # response is now an iterator, not a complete object
+        # each chunk contains one or more tokens as they arrive
+        for chunk in response:
+            token = chunk.choices[0].delta.content
+            if token is not None:
+                yield token     # send this token immediately, do not wait
+
+    def chat_with_history(self, messages: list) -> str:
+        """
+        Send full conversation history to AI and get response.
+        Unlike chat(), this accepts a pre-built messages list
+        instead of constructing it internally.
+        The caller is responsible for building the correct message history.
+        """
+        response = litellm.completion(
+            model=self.model,
+            messages=messages,
+            temperature=self.default_temperature,
+            max_tokens=self.default_max_tokens
+        )
+        return response.choices[0].message.content
 
 # Single instance — same singleton pattern as config
 ai_service = AIService()

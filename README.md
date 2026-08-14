@@ -26,6 +26,9 @@ cp .env.example .env
 ### Run
 uvicorn app.main:app --reload
 
+## Once app runs in local, click below
+[Localhost](http:localhost:8000/docs)
+
 ## API
 
 POST /api/v1/chat

@@ -18,13 +18,32 @@ def extract(request: ExtractRequest):
     try:
         system_prompt = """You are a precise data extraction assistant.
 Extract only the information explicitly present in the customer's message.
-Do not guess or fabricate values for fields that are not mentioned — leave them empty.
+Do not guess or fabricate values for fields not mentioned. 
+ For missing fields, use JSON null — not the string 'null', not 'N/A', 
+ not 'unknown'. Only actual JSON null.
 
-For sentiment, use these guidelines:
-- happy: customer expresses satisfaction or gratitude
-- neutral: customer is simply stating facts or asking questions, no clear emotion
-- frustrated: customer expresses mild to moderate annoyance, impatience, or disappointment
-- angry: customer expresses strong anger, uses aggressive language, or threatens action
+For sentiment classification, use these examples as your guide:
+
+HAPPY examples:
+- Thank you so much, my order arrived early and everything looks perfect!
+- My order arrived and thanks for delivering on time.
+
+NEUTRAL examples:
+- Hi, I wanted to check the status of my order 1234.
+- Hi, I placed the order and looking forward to seeing it delivered on time.
+
+FRUSTRATED examples:
+- I have been waiting for a week and my order still hasn't arrived.
+- Not sure if my order will be delivered or not despite providing all details.
+- I've contacted support three times and nobody has helped me. This is ridiculous.
+
+ANGRY examples:
+- This is completely unacceptable. I want a refund immediately or I'm disputing the charge.
+- I want to speak to a manager right now. This is the worst service I have ever experienced.
+
+Use these boundaries strictly:
+- frustrated = mild to moderate annoyance, impatience, disappointment
+- angry = strong anger, aggressive language, threats, demands for escalation
 """
 
         result = ai_service.extract_structured(
