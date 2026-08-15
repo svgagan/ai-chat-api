@@ -1,16 +1,14 @@
 # app/services/conversation_service.py
 from app.services.ai_service import ai_service
 from app.config import ai_config
+from fastapi import HTTPException
 
 # In-memory store — single source of truth for all conversations
 # Key: session_id (string)
 # Value: list of message dicts [{"role": ..., "content": ...}]
 _conversations: dict = {}
 
-# Maximum number of messages to keep per session
-# System prompt + last N turns
-# Prevents context window overflow
-MAX_MESSAGES = 20
+_session_prompts: dict = {}   # session_id → original system_prompt
 
 class ConversationService:
 
@@ -19,11 +17,15 @@ class ConversationService:
         Load existing conversation or start a fresh one.
         System prompt is always the first message.
         """
-        if session_id not in _conversations:
+        if session_id in _conversations:
+            if _session_prompts[session_id] != system_prompt:
+                raise ValueError("System prompt mismatch for existing session.")
+        else:
             # New session — initialize with system prompt only
             _conversations[session_id] = [
                 {"role": "system", "content": system_prompt}
             ]
+            _session_prompts[session_id] = system_prompt
         return _conversations[session_id]
 
     def add_message(self, session_id: str, role: str, content: str):
@@ -43,12 +45,12 @@ class ConversationService:
         if session_id not in _conversations:
             return
 
-        messages = _conversations[session_id]
+        messages = _conversations.get(session_id, [])
 
-        if len(messages) > MAX_MESSAGES:
+        if len(messages) > ai_config.MAX_CONVERSATION_MESSAGES:
             # Keep system prompt (index 0) + last (MAX_MESSAGES - 1) messages
             system_prompt_message = messages[0]
-            recent_messages = messages[-(MAX_MESSAGES - 1):]
+            recent_messages = messages[-(ai_config.MAX_CONVERSATION_MESSAGES - 1):]
             _conversations[session_id] = [system_prompt_message] + recent_messages
 
     def get_history(self, session_id: str) -> list:

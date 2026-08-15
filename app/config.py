@@ -14,5 +14,6 @@ class AIConfig:
     API_KEY: str = os.getenv("AI_API_KEY", "")
     DEFAULT_TEMPERATURE: float = 0.7
     DEFAULT_MAX_TOKENS: int = 1000
+    MAX_CONVERSATION_MESSAGES: int = int(os.getenv("MAX_CONVERSATION_MESSAGES", "20"))
 
 ai_config = AIConfig()

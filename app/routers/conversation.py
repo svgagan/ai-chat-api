@@ -41,6 +41,8 @@ def create_conversation(request: ConversationRequest):
             session_id=session_id  # client must save this for next request
         )
 
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
