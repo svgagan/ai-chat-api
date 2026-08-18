@@ -1,12 +1,36 @@
 # app/services/ai_service.py
 import litellm
+import os
 import instructor
 from app.config import ai_config
 from typing import Generator
 
-# Tell LiteLLM which API key to use
-# LiteLLM reads this before every call
-litellm.api_key = ai_config.API_KEY
+def _set_api_key():
+    """
+    Model-agnostic API key setup for chat model.
+    Detects provider from model string, sets correct env variable.
+    Add new provider here when needed — nowhere else changes.
+    """
+    model = ai_config.MODEL
+    key = ai_config.API_KEY
+
+    if not key:
+        return  # no key provided
+
+    if model.startswith("gemini/") or model.startswith("google/"):
+        os.environ["GEMINI_API_KEY"] = key
+        os.environ["GOOGLE_API_KEY"] = key
+    elif model.startswith("openai/"):
+        os.environ["OPENAI_API_KEY"] = key
+    elif model.startswith("groq/"):
+        os.environ["GROQ_API_KEY"] = key
+    elif model.startswith("anthropic/"):
+        os.environ["ANTHROPIC_API_KEY"] = key
+    elif model.startswith("ollama/"):
+        pass  # local, no key needed
+
+# Run once at startup
+_set_api_key()
 
 class AIService:
     """

@@ -1,6 +1,6 @@
 # app/main.py
 from fastapi import FastAPI
-from app.routers import chat,explain,extract,stream,conversation
+from app.routers import chat,explain,extract,stream,conversation,search
 
 app = FastAPI(
     title="AI Chat API",
@@ -15,6 +15,7 @@ app.include_router(explain.router, prefix="/api/v1")
 app.include_router(extract.router, prefix="/api/v1")
 app.include_router(stream.router, prefix="/api/v1")
 app.include_router(conversation.router, prefix="/api/v1")
+app.include_router(search.router, prefix="/api/v1")
 
 @app.get("/health")
 def health():

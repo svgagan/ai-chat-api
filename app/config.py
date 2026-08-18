@@ -15,5 +15,11 @@ class AIConfig:
     DEFAULT_TEMPERATURE: float = 0.7
     DEFAULT_MAX_TOKENS: int = 1000
     MAX_CONVERSATION_MESSAGES: int = int(os.getenv("MAX_CONVERSATION_MESSAGES", "20"))
+    # Embedding model — separate from chat model
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "ollama/nomic-embed-text")
+    EMBEDDING_API_KEY: str = os.getenv("EMBEDDING_API_KEY", "")
+
+    # Database
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 
 ai_config = AIConfig()
