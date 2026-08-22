@@ -72,6 +72,7 @@ class SearchResult(BaseModel):
     chunk_index: int
     metadata: Optional[dict] = None
     created_at: str
+    similarity_score: float
 
 class SearchResponse(BaseModel):
     query: str
