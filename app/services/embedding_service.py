@@ -120,13 +120,17 @@ class EmbeddingService:
     ) -> list[dict]:
         """
         Find semantically similar chunks to the query.
+        Now returns similarity_score for each result.
         """
         # Step 1 — embed query with SAME model as indexing
         query_embedding = self.embed_text(query)
 
+        # cosine_distance computed as a column we can select
+        distance_column = DocumentChunk.embedding.cosine_distance(query_embedding)
+
         # Step 2 — base query, exclude soft deleted
         query_builder = (
-            db.query(DocumentChunk)
+            db.query(DocumentChunk, distance_column.label("distance"))
             .filter(DocumentChunk.is_deleted == False)
         )
 
@@ -139,9 +143,7 @@ class EmbeddingService:
         # Step 4 — cosine distance search
         results = (
             query_builder
-            .order_by(
-                DocumentChunk.embedding.cosine_distance(query_embedding)
-            )
+            .order_by(distance_column)
             .limit(limit)
             .all()
         )
@@ -154,9 +156,10 @@ class EmbeddingService:
                 "source": chunk.source,
                 "chunk_index": chunk.chunk_index,
                 "metadata": chunk.doc_metadata,
-                "created_at": str(chunk.created_at)
+                "created_at": str(chunk.created_at),
+                "similarity_score": round(1 - distance, 4)
             }
-            for chunk in results
+            for chunk, distance in results
         ]
 
     def delete_by_source(self, source: str, db: Session) -> int:
