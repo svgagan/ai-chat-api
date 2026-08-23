@@ -1,6 +1,6 @@
 # app/models/document_chunks.py
 from sqlalchemy import Column, Text, Integer, DateTime, Boolean, func
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID, JSONB, TSVECTOR
 from pgvector.sqlalchemy import Vector
 import uuid
 from app.database import Base
@@ -20,4 +20,5 @@ class DocumentChunk(Base):
     document_id     = Column(UUID(as_uuid=True))
     is_deleted      = Column(Boolean, default=False)
     content_hash    = Column(Text)
-    embedding_model = Column(Text, default="gemini/text-embedding-004")
+    embedding_model = Column(Text, default="ollama/nomic-embed-text")
+    content_tsv     = Column(TSVECTOR)

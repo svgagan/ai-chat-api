@@ -18,7 +18,8 @@ class ChunkCitation(BaseModel):
     source: str
     chunk_index: int
     content: str
-    similarity_score: float
+    similarity_score: Optional[float] = None
+    rrf_score: Optional[float] = None
 
 class RagResponse(BaseModel):
     answer: str
@@ -26,7 +27,7 @@ class RagResponse(BaseModel):
     chunks_retrieved: int
     chunks_used: int
     chunk_citations: Optional[list[ChunkCitation]] = None
-    similarity_threshold: Optional[float] = None
+    rrf_threshold: Optional[float] = None
 
 @router.post("/ask", response_model=RagResponse)
 def ask(
@@ -53,7 +54,7 @@ def ask(
             chunks_retrieved=results["chunks_retrieved"],
             chunks_used=results["chunks_used"],
             chunk_citations=results["chunk_citations"] if request.isChunkCitationRequired else None,
-            similarity_threshold=rag_service.similarity_threshold if request.isChunkCitationRequired else None
+            rrf_threshold=rag_service.rrf_threshold if request.isChunkCitationRequired else None
         )
 
     except Exception as e:
@@ -71,7 +72,7 @@ class RagConversationalResponse(BaseModel):
     chunks_retrieved: int
     chunks_used: int
     chunk_citations: Optional[list[ChunkCitation]] = None
-    similarity_threshold: Optional[float] = None
+    rrf_threshold: Optional[float] = None
     rewritten_query: str
     session_id: str
 
@@ -99,7 +100,7 @@ def askConversational(
             chunks_retrieved=results["chunks_retrieved"],
             chunks_used=results["chunks_used"],
             chunk_citations=results["chunk_citations"] if request.isChunkCitationRequired else None,
-            similarity_threshold=rag_service.similarity_threshold if request.isChunkCitationRequired else None,
+            rrf_threshold=rag_service.rrf_threshold if request.isChunkCitationRequired else None,
             session_id=session_id
         )
 
