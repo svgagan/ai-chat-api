@@ -23,5 +23,8 @@ class AIConfig:
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
     RAG_SIMILARITY_THRESHOLD: float = float(os.getenv("RAG_SIMILARITY_THRESHOLD", "0.5"))
     RAG_MAX_CHUNKS: int = int(os.getenv("RAG_MAX_CHUNKS", "5"))
+    RAG_RRF_THRESHOLD: float = float(os.getenv("RAG_RRF_THRESHOLD", "0.02"))
+    RAG_RRF_K: int = int(os.getenv("RAG_RRF_K", "60"))
+    RAG_CANDIDATE_POOL_MULTIPLIER: int = int(os.getenv("RAG_CANDIDATE_POOL_MULTIPLIER", "4"))
 
 ai_config = AIConfig()

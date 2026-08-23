@@ -12,15 +12,17 @@ class RAGService:
         self.ai_service = ai_service
         self.similarity_threshold = ai_config.RAG_SIMILARITY_THRESHOLD
         self.max_chunks = ai_config.RAG_MAX_CHUNKS
+        self.rrf_threshold = ai_config.RAG_RRF_THRESHOLD
+        self.rrf_k = ai_config.RAG_RRF_K
 
     def _filter_by_threshold(self, chunks: list[dict]) -> list[dict]:
         """
-        Keep only chunks that meet the minimum similarity threshold.
+        Keep only chunks that meet the minimum rrf threshold.
         Prevents handing irrelevant context to the AI.
         """
         return [
             chunk for chunk in chunks
-            if chunk["similarity_score"] >= self.similarity_threshold
+            if chunk.get("rrf_score", 0) >= self.rrf_threshold
         ]
 
     def _build_context(self, chunks: list[dict]) -> str:
@@ -48,10 +50,11 @@ class RAGService:
         so the caller can show citations.
         """
         # Step 1 — RETRIEVE
-        retrieved_chunks = self.embedding_service.search(
+        retrieved_chunks = self.embedding_service.hybrid_search(
             query=query,
             limit=self.max_chunks,
             source_filter=source_filter,
+            rrf_k=self.rrf_k,
             db=db
         )
 
@@ -91,10 +94,11 @@ class RAGService:
 
         chunk_citations = [
             {
-                "source": chunk["source"],
-                "chunk_index": chunk["chunk_index"],
-                "content": chunk["content"],
-                "similarity_score": chunk["similarity_score"]
+                "source": chunk.get("source"),
+                "chunk_index": chunk.get("chunk_index"),
+                "content": chunk.get("content"),
+                "similarity_score": chunk.get("similarity_score"),
+                "rrf_score": chunk.get("rrf_score")
             }
             for chunk in relevant_chunks
         ]
@@ -154,19 +158,18 @@ class RAGService:
         RAG with conversation memory. Follow-up questions get
         rewritten into standalone questions before retrieval.
         """
-        # Step 1 — load or create session, get existing history
         history = conversation_service.get_or_create_session(
             session_id, system_prompt
         )
 
-        # Step 2 — rewrite query if this is a follow-up
         search_query = self._rewrite_query(query, history)
 
-        # Step 3 — retrieve using the rewritten query
-        retrieved_chunks = self.embedding_service.search(
+        # Upgraded to hybrid search — same fix as answer_question
+        retrieved_chunks = self.embedding_service.hybrid_search(
             query=search_query,
             limit=self.max_chunks,
             source_filter=source_filter,
+            rrf_k=self.rrf_k,
             db=db
         )
         relevant_chunks = self._filter_by_threshold(retrieved_chunks)
@@ -176,17 +179,16 @@ class RAGService:
         else:
             context = self._build_context(relevant_chunks)
             rag_system_prompt = f"""Answer using ONLY the context below.
-            If the context is insufficient, say so.
+                If the context is insufficient, say so.
 
-            Context:
-            {context}
-            """
+                Context:
+                {context}
+                """
             answer = self.ai_service.chat(
                 user_message=query,
                 system_prompt=rag_system_prompt
             )
 
-        # Step 4 — save this turn to conversation history
         conversation_service.add_message(session_id, "user", query)
         conversation_service.add_message(session_id, "assistant", answer)
         conversation_service.trim_if_needed(session_id)
@@ -195,10 +197,11 @@ class RAGService:
 
         chunk_citations = [
             {
-                "source": chunk["source"],
-                "chunk_index": chunk["chunk_index"],
-                "content": chunk["content"],
-                "similarity_score": chunk["similarity_score"]
+                "source": chunk.get("source"),
+                "chunk_index": chunk.get("chunk_index"),
+                "content": chunk.get("content"),
+                "similarity_score": chunk.get("similarity_score"),  
+                "rrf_score": chunk.get("rrf_score")                 
             }
             for chunk in relevant_chunks
         ]
@@ -211,5 +214,4 @@ class RAGService:
             "chunks_used": len(relevant_chunks) if relevant_chunks else 0,
             "chunk_citations": chunk_citations
         }
-
 rag_service = RAGService()

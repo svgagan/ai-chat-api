@@ -2,6 +2,7 @@
 import litellm
 import os
 import hashlib
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.config import ai_config
 from app.models.document_chunks import DocumentChunk
@@ -178,5 +179,158 @@ class EmbeddingService:
         db.commit()
         return len(chunks)
 
+    def keyword_search(
+        self,
+        query: str,
+        limit: int = 5,
+        source_filter: str = None,
+        db: Session = None
+    ) -> list[dict]:
+
+        """
+        Full-text keyword search using PostgreSQL's native
+        tsvector/ts_rank. Uses OR logic between query terms
+        so natural language questions still match relevant
+        documents even when not every word is present.
+        """
+        or_query_string = self._build_or_tsquery(query)
+        ts_query = func.to_tsquery('english', or_query_string)
+        rank_column = func.ts_rank(DocumentChunk.content_tsv, ts_query)
+
+        query_builder = (
+            db.query(DocumentChunk, rank_column.label("rank_score"))
+            .filter(DocumentChunk.is_deleted == False)
+            .filter(DocumentChunk.content_tsv.op('@@')(ts_query))
+        )
+
+        if source_filter:
+            query_builder = query_builder.filter(
+                DocumentChunk.source == source_filter
+            )
+
+        results = (
+            query_builder
+            .order_by(rank_column.desc())
+            .limit(limit)
+            .all()
+        )
+
+        return [
+            {
+                "id": str(chunk.id),
+                "content": chunk.content,
+                "source": chunk.source,
+                "chunk_index": chunk.chunk_index,
+                "metadata": chunk.doc_metadata,
+                "created_at": str(chunk.created_at),
+                "keyword_rank_score": round(float(rank_score), 4)
+            }
+            for chunk, rank_score in results
+        ]
+
+    def _build_or_tsquery(self, query: str) -> str:
+        """
+        Converts a natural language query into an OR-based tsquery
+        string. PostgreSQL's plainto_tsquery defaults to AND logic,
+        which fails on natural language questions where not every
+        word appears in the matching document. OR logic means a
+        document matches if it contains ANY meaningful query term,
+        then ts_rank naturally scores documents with MORE matching
+        terms higher than documents with just one.
+        """
+        words = query.split()
+        or_query = " | ".join(words)
+        return or_query
+
+    def hybrid_search(
+        self,
+        query: str,
+        limit: int = 5,
+        source_filter: str = None,
+        rrf_k: int = 60,
+        pool_multiplier: int = 4,
+        db: Session = None
+    ) -> list[dict]:
+        """
+        Combines semantic search and keyword search using
+        Reciprocal Rank Fusion (RRF).
+
+        Retrieves a wider candidate pool from EACH method
+        (not just `limit`), then fuses rankings, then trims
+        to `limit`. This matters because a document might rank
+        poorly in one method but well in the other — a narrow
+        pool per method risks losing it before fusion even happens.
+        """
+        # Retrieve a wider pool from each method than the final limit
+        candidate_pool_size = limit * pool_multiplier
+
+        semantic_results = self.search(
+            query=query,
+            limit=candidate_pool_size,
+            source_filter=source_filter,
+            db=db
+        )
+
+        keyword_results = self.keyword_search(
+            query=query,
+            limit=candidate_pool_size,
+            source_filter=source_filter,
+            db=db
+        )
+
+        # Build rank lookups: chunk_id -> rank position (0-indexed)
+        semantic_ranks = {
+            chunk["id"]: rank for rank, chunk in enumerate(semantic_results)
+        }
+        keyword_ranks = {
+            chunk["id"]: rank for rank, chunk in enumerate(keyword_results)
+        }
+
+        # Union of all chunk ids seen in either list
+        all_chunk_ids = set(semantic_ranks.keys()) | set(keyword_ranks.keys())
+
+        # Keep a lookup to the full chunk data regardless of which
+        # list it came from.
+        # Merge instead of overwrite — preserve fields from BOTH methods
+        chunk_data_by_id = {}
+        for c in semantic_results:
+            chunk_data_by_id[c["id"]] = dict(c)
+
+        for c in keyword_results:
+            if c["id"] in chunk_data_by_id:
+                # Chunk found in both — merge keyword fields IN,
+                # don't lose the semantic fields already there
+                chunk_data_by_id[c["id"]].update({
+                    "keyword_rank_score": c["keyword_rank_score"]
+                })
+            else:
+                # Chunk found only in keyword search
+                chunk_data_by_id[c["id"]] = dict(c)
+
+        # Compute RRF score for every chunk that appeared in EITHER list
+        rrf_scores = []
+        for chunk_id in all_chunk_ids:
+            s_rank = semantic_ranks.get(chunk_id)
+            k_rank = keyword_ranks.get(chunk_id)
+
+            s_score = 1 / (rrf_k + s_rank + 1) if s_rank is not None else 0
+            k_score = 1 / (rrf_k + k_rank + 1) if k_rank is not None else 0
+
+            combined_score = s_score + k_score
+
+            chunk = chunk_data_by_id[chunk_id]
+            rrf_scores.append({
+                **chunk,
+                "rrf_score": round(combined_score, 5),
+                "found_in_semantic": s_rank is not None,
+                "found_in_keyword": k_rank is not None,
+                "semantic_rank": s_rank + 1 if s_rank is not None else None,
+                "keyword_rank": k_rank + 1 if k_rank is not None else None
+            })
+
+        # Sort by combined RRF score, highest first
+        rrf_scores.sort(key=lambda x: x["rrf_score"], reverse=True)
+
+        return rrf_scores[:limit]
 
 embedding_service = EmbeddingService()
