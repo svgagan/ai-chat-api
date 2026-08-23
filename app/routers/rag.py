@@ -20,6 +20,9 @@ class ChunkCitation(BaseModel):
     content: str
     similarity_score: Optional[float] = None
     rrf_score: Optional[float] = None
+    rerank_score: Optional[float] = None
+    original_rank: Optional[int] = None
+    final_rank: Optional[int] = None
 
 class RagResponse(BaseModel):
     answer: str
