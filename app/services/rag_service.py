@@ -61,6 +61,9 @@ class RAGService:
         # Step 2 — FILTER by similarity threshold
         relevant_chunks = self._filter_by_threshold(retrieved_chunks)
 
+        # chunks re-ranking before passing it as context to llm
+        relevant_chunks = self.embedding_service.rerank(query, relevant_chunks)
+
         # Step 3 — Handle the "nothing relevant found" case
         if not relevant_chunks:
             return {
@@ -98,7 +101,10 @@ class RAGService:
                 "chunk_index": chunk.get("chunk_index"),
                 "content": chunk.get("content"),
                 "similarity_score": chunk.get("similarity_score"),
-                "rrf_score": chunk.get("rrf_score")
+                "rrf_score": chunk.get("rrf_score"),
+                "rerank_score": chunk.get("rerank_score"),
+                "original_rank": chunk.get("original_rank"),
+                "final_rank": chunk.get("final_rank")
             }
             for chunk in relevant_chunks
         ]
@@ -112,31 +118,30 @@ class RAGService:
         }
 
     def _rewrite_query(self, query: str, history: list) -> str:
-        """
-        Rewrite a follow-up query into a standalone question
-        using conversation history, so retrieval can work
-        without needing the prior turn's context.
-        Skipped if history has no prior turns.
-        """
-        # history includes system prompt at index 0 — need at least
-        # one prior user+assistant exchange to rewrite meaningfully
         if len(history) <= 1:
             return query
 
         history_text = "\n".join(
             f"{msg['role']}: {msg['content']}"
-            for msg in history
-            if msg["role"] != "system"
+            for msg in history if msg["role"] != "system"
         )
 
-        rewrite_prompt = f"""Given this conversation history:
+        rewrite_prompt = f"""Conversation history:
             {history_text}
 
-            Rewrite the following follow-up question into a standalone
-            question that makes sense without the conversation history.
-            Only output the rewritten question, nothing else.
+            Follow-up question: {query}
 
-            Follow-up question: {query}"""
+            Rewrite the follow-up into a standalone question. Replace vague
+            references ("that", "the shipping one", "instead") with the actual
+            topic from history. Do not merge wording from the previous question
+            with the new topic. Output ONLY the rewritten question.
+
+            Example:
+            History: user asked about return policy, assistant answered
+            Follow-up: "what about shipping instead"
+            Correct rewrite: "What is your shipping policy?"
+            Wrong rewrite: "How long do I have to return a shipping item?"
+            """
 
         rewritten = self.ai_service.chat(
             user_message=rewrite_prompt,
@@ -174,6 +179,8 @@ class RAGService:
         )
         relevant_chunks = self._filter_by_threshold(retrieved_chunks)
 
+        relevant_chunks = self.embedding_service.rerank(query, relevant_chunks)
+
         if not relevant_chunks:
             answer = "I don't have information about that in the available documents."
         else:
@@ -201,7 +208,10 @@ class RAGService:
                 "chunk_index": chunk.get("chunk_index"),
                 "content": chunk.get("content"),
                 "similarity_score": chunk.get("similarity_score"),  
-                "rrf_score": chunk.get("rrf_score")                 
+                "rrf_score": chunk.get("rrf_score"),
+                "rerank_score": chunk.get("rerank_score"),
+                "original_rank": chunk.get("original_rank"),
+                "final_rank": chunk.get("final_rank")                 
             }
             for chunk in relevant_chunks
         ]

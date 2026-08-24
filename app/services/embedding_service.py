@@ -6,6 +6,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.config import ai_config
 from app.models.document_chunks import DocumentChunk
+from sentence_transformers import CrossEncoder
+import torch
 
 def _set_embedding_api_key():
     """
@@ -40,6 +42,7 @@ class EmbeddingService:
     def __init__(self):
         self.embedding_model = ai_config.EMBEDDING_MODEL
         self.dimensions = 768
+        self._reranker = None
 
     def embed_text(self, text: str) -> list[float]:
         """
@@ -332,5 +335,32 @@ class EmbeddingService:
         rrf_scores.sort(key=lambda x: x["rrf_score"], reverse=True)
 
         return rrf_scores[:limit]
+
+    def _get_reranker(self):
+        if self._reranker is None:
+            self._reranker = CrossEncoder(ai_config.RERANK_MODEL, activation_fn=torch.nn.Sigmoid())
+        return self._reranker
+
+    def rerank(self, query: str, chunks: list[dict]) -> list[dict]:
+        """
+        Re-scores candidates by reading query and each chunk together.
+        One batched call, not one call per candidate.
+        """
+        if not chunks:
+            return chunks
+
+        reranker = self._get_reranker()
+        pairs = [[query, c["content"]] for c in chunks]
+        scores = reranker.predict(pairs)
+
+        for chunk, score in zip(chunks, scores):
+            chunk["rerank_score"] = round(float(score), 4)
+            chunk["original_rank"] = chunks.index(chunk) + 1
+
+        reranked = sorted(chunks, key=lambda c: c["rerank_score"], reverse=True)
+        for i, chunk in enumerate(reranked, 1):
+            chunk["final_rank"] = i
+
+        return reranked
 
 embedding_service = EmbeddingService()

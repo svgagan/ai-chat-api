@@ -15,16 +15,24 @@ class AIConfig:
     DEFAULT_TEMPERATURE: float = 0.7
     DEFAULT_MAX_TOKENS: int = 1000
     MAX_CONVERSATION_MESSAGES: int = int(os.getenv("MAX_CONVERSATION_MESSAGES", "20"))
+
     # Embedding model — separate from chat model
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "ollama/nomic-embed-text")
     EMBEDDING_API_KEY: str = os.getenv("EMBEDDING_API_KEY", "")
 
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+
+    #RAG
     RAG_SIMILARITY_THRESHOLD: float = float(os.getenv("RAG_SIMILARITY_THRESHOLD", "0.5"))
     RAG_MAX_CHUNKS: int = int(os.getenv("RAG_MAX_CHUNKS", "5"))
+
+    #Hybrid-Search
     RAG_RRF_THRESHOLD: float = float(os.getenv("RAG_RRF_THRESHOLD", "0.02"))
     RAG_RRF_K: int = int(os.getenv("RAG_RRF_K", "60"))
     RAG_CANDIDATE_POOL_MULTIPLIER: int = int(os.getenv("RAG_CANDIDATE_POOL_MULTIPLIER", "4"))
+
+    #Reranking
+    RERANK_MODEL: str = os.getenv("RERANK_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 ai_config = AIConfig()
