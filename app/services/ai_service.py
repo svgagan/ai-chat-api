@@ -148,5 +148,25 @@ class AIService:
         )
         return response.choices[0].message.content
 
+    def chat_with_tools(
+        self,
+        messages: list,
+        tools: list,
+        tool_choice: str = "auto"
+    ):
+        """
+        Send messages with available tools. Returns the raw response
+        object — caller must check response.choices[0].message
+        for whether the model wants to call a tool, or has given
+        a direct text answer.
+        """
+        response = litellm.completion(
+            model=self.model,
+            messages=messages,
+            tools=tools,
+            tool_choice=tool_choice
+        )
+        return response
+
 # Single instance — same singleton pattern as config
 ai_service = AIService()
