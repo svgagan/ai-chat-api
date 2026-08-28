@@ -3,6 +3,10 @@ import json
 from app.services.ai_service import ai_service
 from app.tools.weather_tool import get_weather, WEATHER_TOOL_DEFINITION
 from app.tools.calculator_tool import calculate, CALCULATOR_TOOL_DEFINITION
+from app.tools.time_tool import get_current_time, TIME_TOOL_DEFINITION
+from app.tools.currency_tool import convert_currency, CURRENCY_TOOL_DEFINITION
+from app.tools.knowledge_base_tool import search_knowledge_base, KNOWLEDGE_BASE_TOOL_DEFINITION
+
 
 # Registry mapping tool names to actual callable functions
 # This indirection is the key architectural piece: the model
@@ -10,10 +14,18 @@ from app.tools.calculator_tool import calculate, CALCULATOR_TOOL_DEFINITION
 TOOL_REGISTRY = {
     "get_weather": get_weather,
     "calculate": calculate,
+    "get_current_time": get_current_time,
+    "convert_currency": convert_currency,
+    "search_knowledge_base": search_knowledge_base,
 }
 
-AVAILABLE_TOOLS = [WEATHER_TOOL_DEFINITION, CALCULATOR_TOOL_DEFINITION]
-
+AVAILABLE_TOOLS = [
+    WEATHER_TOOL_DEFINITION,
+    CALCULATOR_TOOL_DEFINITION,
+    TIME_TOOL_DEFINITION,
+    CURRENCY_TOOL_DEFINITION,
+    KNOWLEDGE_BASE_TOOL_DEFINITION,
+]
 
 class ToolService:
 
