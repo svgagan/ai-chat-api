@@ -5,6 +5,9 @@ import instructor
 from app.config import ai_config
 from typing import Generator
 
+# Uncomment it for tracing llm responses
+# litellm._turn_on_debug()
+
 def _set_api_key():
     """
     Model-agnostic API key setup for chat model.

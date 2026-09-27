@@ -19,7 +19,7 @@ def search_knowledge_base(question: str) -> dict:
 KNOWLEDGE_BASE_TOOL_DEFINITION = {
     "type": "function",
     "function": {
-        "name": "search_knowledge_base",
+        "name": "knowledge_base",
         "description": "Search the company's internal documents for policy questions, such as return policy, shipping policy, or refund questions. Use this for any question about company policies.",
         "parameters": {
             "type": "object",

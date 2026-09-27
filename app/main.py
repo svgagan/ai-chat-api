@@ -1,6 +1,6 @@
 # app/main.py
 from fastapi import FastAPI
-from app.routers import chat,explain,extract,stream,conversation,search,rag,tools
+from app.routers import chat,explain,extract,stream,conversation,search,rag,tools,agent
 
 app = FastAPI(
     title="AI Chat API",
@@ -18,6 +18,7 @@ app.include_router(conversation.router, prefix="/api/v1", tags=["Memory"])
 app.include_router(search.router, prefix="/api/v1", tags=["Embeddings"])
 app.include_router(rag.router, prefix="/api/v1", tags=["RAG"])
 app.include_router(tools.router, prefix="/api/v1", tags=["Tool Calling"])
+app.include_router(agent.router, prefix="/api/v1", tags=["Agents"])
 
 @app.get("/health", tags=["System"])
 def health():

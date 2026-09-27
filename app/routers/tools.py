@@ -11,10 +11,11 @@ class ToolChatRequest(BaseModel):
 class ToolChatResponse(BaseModel):
     answer: str
 
+# app/routers/tools.py
 @router.post("/tool-chat", response_model=ToolChatResponse)
-def tool_chat(request: ToolChatRequest):
+async def tool_chat(request: ToolChatRequest):
     try:
-        answer = tool_service.chat_with_tools(user_message=request.message)
+        answer = await tool_service.chat_with_tools(user_message=request.message)
         return ToolChatResponse(answer=answer)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
