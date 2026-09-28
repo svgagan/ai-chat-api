@@ -35,4 +35,13 @@ class AIConfig:
     #Reranking
     RERANK_MODEL: str = os.getenv("RERANK_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
 
+    #Refer mcp_servers folder
+    KNOWN_MCP_SERVERS: list[str] = [
+        "http://127.0.0.1:8001/mcp",
+        "http://127.0.0.1:8002/mcp",
+        "http://127.0.0.1:8003/mcp",
+        "http://127.0.0.1:8004/mcp",
+        "http://127.0.0.1:8005/mcp",
+    ]
+
 ai_config = AIConfig()
